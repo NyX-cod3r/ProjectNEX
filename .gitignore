@@ -1,0 +1,14 @@
+# Windows OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Cisco Packet Tracer backup/temp files
+*.bak
+*.tmp
