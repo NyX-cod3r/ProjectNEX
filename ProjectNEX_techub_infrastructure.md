@@ -150,8 +150,6 @@ interface gigabitEthernet0/0.100
 exit
 ```
 
-> **Lesson #3:** I typo'd `ip adress` (missing a 'd') on my first attempt at the VLAN 10 sub-interface — got `% Invalid input detected at '^' marker`. Cisco IOS points at exactly where it got confused, which made it easy to spot once I looked closely.
-
 `show ip interface brief` confirmed all three sub-interfaces `up/up` with the right IPs.
 
 ![Router IP Interface Status](images/pt_router_ip_brief.png)
@@ -223,9 +221,9 @@ sudo passwd dev_1
 sudo passwd dev_2
 ```
 
-> **Lesson #4:** After creating the groups, I ran `cat /etc/group | grep -E "sysadmin|devteam"` expecting to see the usernames listed — but they weren't there. Turns out `/etc/group` only lists *secondary* group memberships in that member list; since I assigned these as each user's *primary* group (with `-g`), they don't show up there even though everything's correctly set up. To actually verify, `id admin_A` is the right command — it shows `gid=1001(sysadmin)` clearly.
+> **Lesson #3:** After creating the groups, I ran `cat /etc/group | grep -E "sysadmin|devteam"` expecting to see the usernames listed — but they weren't there. Turns out `/etc/group` only lists *secondary* group memberships in that member list; since I assigned these as each user's *primary* group (with `-g`), they don't show up there even though everything's correctly set up. To actually verify, `id admin_A` is the right command — it shows `gid=1001(sysadmin)` clearly.
 
-> **Lesson #5 (bigger one):** Way later, when I tried to use `admin_A` for sysadmin tasks, every `sudo` command gave me this hilarious error: `sudo: I'm sorry admin_A. I'm afraid I can't do that` (a HAL 9000 reference — apparently `sudo` has a fun "insults" mode). The actual problem: I never added `admin_A` to the `sudo` group! Fixed with:
+> **Lesson #4 (bigger one):** Way later, when I tried to use `admin_A` for sysadmin tasks, every `sudo` command gave me this hilarious error: `sudo: I'm sorry admin_A. I'm afraid I can't do that` (a HAL 9000 reference — apparently `sudo` has a fun "insults" mode). The actual problem: I never added `admin_A` to the `sudo` group! Fixed with:
 > ```bash
 > sudo usermod -aG sudo admin_A
 > ```
@@ -265,7 +263,7 @@ zone "techhub.local" {
 };
 ```
 
-> **Lesson #6:** This file actually came pre-populated with a zone block — but for `mycorp.local`, and it was also missing a semicolon at the end of the `file` line (syntax error waiting to happen). Had to fix both: rename the zone to `techhub.local`, and add the missing `;`.
+> **Lesson #5:** This file actually came pre-populated with a zone block — but for `mycorp.local`, and it was also missing a semicolon at the end of the `file` line (syntax error waiting to happen). Had to fix both: rename the zone to `techhub.local`, and add the missing `;`.
 
 Then the actual zone file (`/etc/bind/zones/db.techhub.local`):
 
@@ -284,11 +282,11 @@ www     IN      A       192.168.10.34
 internal IN     A       192.168.10.34
 ```
 
-> **Lesson #7:** I expected a template file (`db.local`) to exist to copy from, but `ls /etc/bind/` showed it wasn't there on my system. Ended up just writing the zone file from scratch — turns out it's not that long anyway, and now I actually understand every line instead of just copying a template blindly.
+> **Lesson #6:** I expected a template file (`db.local`) to exist to copy from, but `ls /etc/bind/` showed it wasn't there on my system. Ended up just writing the zone file from scratch — turns out it's not that long anyway, and now I actually understand every line instead of just copying a template blindly.
 
 `sudo systemctl restart bind9` → status showed **active (running)**. Testing with `dig @127.0.0.1 www.techhub.local` returned the right IP. ✅
 
-> **Lesson #8 (the big one):** Even though `dig @127.0.0.1` worked, plain `curl http://www.techhub.local` failed with "could not resolve host." Took some digging (pun intended) — turns out **Ubuntu's `systemd-resolved` treats `.local` domains specially** and routes them to mDNS (used for things like network printer discovery), completely ignoring whatever DNS server is configured in `resolv.conf`. The fix was to create a **routing domain**:
+> **Lesson #7 (the big one):** Even though `dig @127.0.0.1` worked, plain `curl http://www.techhub.local` failed with "could not resolve host." Took some digging (pun intended) — turns out **Ubuntu's `systemd-resolved` treats `.local` domains specially** and routes them to mDNS (used for things like network printer discovery), completely ignoring whatever DNS server is configured in `resolv.conf`. The fix was to create a **routing domain**:
 > ```bash
 > sudo resolvectl dns enp0s3 127.0.0.1
 > sudo resolvectl domain enp0s3 "~techhub.local"
@@ -329,7 +327,7 @@ sudo systemctl restart apache2
 
 ![Apache virtual hosts configuration and DNS resolution check](images/dns_resolve_failure.png)
 
-> **Lesson #9:** After fixing the DNS routing issue above, `curl` still failed at first — this time with `(28) Failed to connect ... Could not connect to server`. The DNS *resolution* worked, but the IP it resolved to (`192.168.10.34`, from my original plan) **wasn't actually my VM's real IP** (which was `192.168.1.13`, assigned by my home router via the Bridged Adapter). Updated the zone file's `A` records to point to my actual VM IP, restarted BIND9, and `curl` finally returned my test pages correctly.
+> **Lesson #8:** After fixing the DNS routing issue above, `curl` still failed at first — this time with `(28) Failed to connect ... Could not connect to server`. The DNS *resolution* worked, but the IP it resolved to (`192.168.10.34`, from my original plan) **wasn't actually my VM's real IP** (which was `192.168.1.13`, assigned by my home router via the Bridged Adapter). Updated the zone file's `A` records to point to my actual VM IP, restarted BIND9, and `curl` finally returned my test pages correctly.
 
 ### 3. Samba (File Sharing with Windows)
 
@@ -409,8 +407,6 @@ echo "[$(date)] Backup completed successfully." >> "$LOG_FILE"
 
 Compresses `/var/www` into a timestamped archive, then generates a **SHA256 hash** as a fingerprint — if anyone ever tampers with the backup, the hash won't match anymore and I'd know.
 
-> **Lesson #10:** My first draft of the last `echo` line was missing the `>>` redirect — without it, bash just *prints* the message to the terminal instead of appending it to the log file. Small symbol, big difference in behavior.
-
 ```bash
 sudo chmod +x /usr/local/bin/backup_system.sh
 sudo /usr/local/bin/backup_system.sh
@@ -439,14 +435,6 @@ for service in "${SERVICES[@]}"; do
 done
 ```
 
-> **Lesson #11 (my favorite bug of the whole project):** My first draft used `SERVICES` (the array name) as the loop variable too, then referenced `$SERVICE` (uppercase) inside the loop, and `$LOG_file` (lowercase "file") for the redirect — three different variable names that all *looked* related but weren't. Bash is case-sensitive and doesn't "fuzzy match" variable names — `$service`, `$SERVICE`, and `$Service` are three completely different variables to it. Took a careful line-by-line pass to make everything consistent (`service` lowercase everywhere, `LOG_FILE` uppercase everywhere). Definitely going to double-check variable names more carefully from now on.
-
-**Buggy health check script (Lesson #11):**
-![Buggy Health Check Script with variable mismatch](images/health_check_buggy.png)
-
-**Fixed health check script:**
-![Fixed Health Check Script](images/health_check_fixed.png)
-
 ### 4. Cron Automation
 
 ```bash
@@ -462,8 +450,6 @@ sudo crontab -e
 
 - Backup runs every night at 2 AM
 - Health check runs every 5 minutes
-
-> **Lesson #12:** Typo'd the health check line as `0*/5 * * * *` (extra leading `0`) — invalid cron syntax. Removed the stray `0` so it's just `*/5 * * * *`.
 
 ### 5. Firewall (UFW)
 
@@ -518,7 +504,7 @@ sudo tail -5 /var/log/backup_audit.log
 sudo ufw status verbose
 ```
 
-**Admin user status check and HAL 9000 error (Lesson #5):**
+**Admin user status check and HAL 9000 error (Lesson #4):**
 ![Admin checking system status with initial permission error](images/verification_admin_status1.png)
 
 **Service statuses (scrolled down):**
@@ -541,11 +527,11 @@ All services active, health log showing "OK" for all three every 5 minutes, back
 
 Honestly, more than I expected for a "beginner" project. A few big takeaways:
 
-- VLANs and subnetting aren't just theory. you can watch traffic get blocked or routed in real time, and it actually clicks differently than reading about it.
-- writting scripts are not that different from coding but still have different some elements that got me confused because i thought its python(yeah its not..not atall)
-- `.local` domains have special handling in modern Linux (mDNS) - something I'd never have known without hitting it head-on
-- Permissions (sticky bit especially) aren't just abstract concepts - they solve real "who can mess with whose files" problems
-- Security is layered - SSH hardening + firewall + ACLs + file permissions all stack together, no single setting does it all
+- VLANs and subnetting aren't just theory. You can watch traffic get blocked or routed in real time, and it actually clicks differently than reading about it.
+- Writing scripts is not that different from coding, but they have different syntax and elements than Python.
+- `.local` domains have special handling in modern Linux (mDNS) — something I'd never have known without hitting it head-on.
+- Permissions (sticky bit especially) aren't just abstract concepts — they solve real "who can mess with whose files" problems.
+- Security is layered — SSH hardening + firewall + ACLs + file permissions all stack together, no single setting does it all.
 
 ## What I'd Improve Next
 
@@ -555,5 +541,5 @@ Honestly, more than I expected for a "beginner" project. A few big takeaways:
 - Containerize the Apache sites with Docker
 - Add `fail2ban` to auto-ban repeated failed SSH attempts
 - Turn the health check log into a live terminal dashboard
-- try to understand the disk phrases more if it can be usefull to keep track of it and use it as security measure without the users(devs or attackers) knowing.
+- Try to understand disk security/phases more, as it could be useful to keep track of it and use it as a security measure without users (devs or attackers) knowing.
 
